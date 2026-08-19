@@ -88,6 +88,7 @@
     let timeLeft = 60;
     let isGameOver = false;
     let startTime = Date.now();
+    let endTimeString = ""; // 🔥 수정 1: 게임 종료 시각을 고정으로 저장해둘 변수 추가!
 
     // 🔥 수정한 부분 16: 이펙트(별가루, 파동)를 저장할 배열 추가!
     let effects = [];
@@ -233,8 +234,9 @@
         timeLeft = 60;
         isGameOver = false;
         startTime = Date.now();
+        endTimeString = ""; // 재시작 시 텍스트 초기화
         activeBalls = [];
-        effects = []; // 재시작 시 이펙트 초기화
+        effects = []; 
         
         court.offsetX = 0;
         court.offsetY = 0;
@@ -493,6 +495,10 @@
             if (timeLeft <= 0) {
                 isGameOver = true;
                 restartBtn.style.display = "block"; 
+                
+                // 🔥 수정 2: 게임 끝나는 바로 이 순간에 시간을 딱 1번만 구해서 변수에 박제!
+                const now = new Date();
+                endTimeString = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
             }
         }
 
@@ -612,12 +618,10 @@
             ctx.font = "bold 35px 'Malgun Gothic'";
             ctx.fillText(`최종 점수: ${score}점`, canvas.width/2, canvas.height/2 + 10);
 
-            // 🔥 추가된 부분: 결과창에 현재 한국 시간(KST) 띄우기!
-            const now = new Date();
-            const timeString = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+            // 🔥 수정 3: 매 프레임 실시간 업데이트 대신, 박제된 시간을 화면에 표시!
             ctx.fillStyle = "#bdc3c7"; // 살짝 연한 밝은 회색
             ctx.font = "bold 18px 'Malgun Gothic'";
-            ctx.fillText(`기록 일시: ${timeString}`, canvas.width/2, canvas.height/2 + 60);
+            ctx.fillText(`기록 일시: ${endTimeString}`, canvas.width/2, canvas.height/2 + 60);
         }
     }
 
