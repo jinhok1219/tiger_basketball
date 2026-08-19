@@ -335,24 +335,27 @@
                 }
             }
 
-            // 2. 백보드 충돌 (뱅크슛 투명벽 해결 버전!)
+            // 2. 백보드 충돌 (뱅크슛 투명벽 해결 + 판정 넉넉하게 혜자 버전!)
             if (b.vz > 0 && 
                 b.z >= court.backboardZ - b.radius && 
                 b.z <= court.backboardZ + b.radius) { 
                 
                 let backboardTopY = court.backboardY - court.backboardH/2;
                 
-                if (b.x > court.offsetX - court.backboardW/2 && 
-                    b.x < court.offsetX + court.backboardW/2 &&
-                    b.y > backboardTopY &&  
-                    b.y < court.backboardY + court.backboardH/2) {
+                // 🔥 수정한 부분 22: 백보드 판정(히트박스) 영역을 상하좌우 40만큼 크게 늘림! (공이 스치기만 해도 맞음)
+                let hitMargin = 40; 
+                
+                if (b.x > court.offsetX - court.backboardW/2 - hitMargin && 
+                    b.x < court.offsetX + court.backboardW/2 + hitMargin &&
+                    b.y > backboardTopY - hitMargin &&  
+                    b.y < court.backboardY + court.backboardH/2 + hitMargin) {
                     
                     b.z = court.backboardZ - b.radius;
                     b.vz *= -0.4; 
                     b.vx *= 0.6;
                     b.vy *= 0.8;
 
-                    // 🔥 수정한 부분 18: 백보드 타격 시 하얀 파동 이펙트 생성!
+                    // 백보드 타격 시 하얀 파동 이펙트
                     effects.push({
                         type: 'hit',
                         x: b.x, y: b.y, z: court.backboardZ,
