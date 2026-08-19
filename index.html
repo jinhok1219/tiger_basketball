@@ -334,17 +334,23 @@
             }
 
             // 2. 백보드 충돌
-            if (b.vz > 0 && b.z >= court.backboardZ - b.radius) {
-                // 현재 백보드의 꼭대기(상단) Y좌표 계산
+            // 🔥 수정한 부분 14: 공이 백보드 뒤로 넘어갔을 때 다시 튕겨나오는 '투명 벽' 버그 완벽 해결!
+            // z축 깊이 판정에 상한선(b.z <= court.backboardZ + b.radius)을 추가해서 진짜 백보드 두께만큼만 판정함!
+            if (b.vz > 0 && 
+                b.z >= court.backboardZ - b.radius && 
+                b.z <= court.backboardZ + b.radius) { // 👈 이 한 줄이 핵심 마법!
+                
                 let backboardTopY = court.backboardY - court.backboardH/2;
                 
                 if (b.x > court.offsetX - court.backboardW/2 && 
                     b.x < court.offsetX + court.backboardW/2 &&
-                    b.y > backboardTopY &&  // 🔥 이 조건 덕분에 높이 던지면 뒤로 슝 넘어감!
+                    b.y > backboardTopY &&  
                     b.y < court.backboardY + court.backboardH/2) {
                     
                     b.z = court.backboardZ - b.radius;
-                    b.vz *= -0.3; 
+                    
+                    // 🔥 수정한 부분 15: 빨간 네모(백보드 중앙) 맞췄을 때 림으로 더 찰지게 빨려 들어가도록 탄성 조절!
+                    b.vz *= -0.4; // 골대(앞쪽)로 조금 더 힘있게 뱉어내게 수정 (원래 -0.3)
                     b.vx *= 0.6;
                     b.vy *= 0.8;
                 }
