@@ -502,7 +502,7 @@
                 const proj = project3D(e.x, e.y, e.z);
                 ctx.beginPath();
                 ctx.arc(proj.x, proj.y, e.size * proj.scale, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(255, 255, 255, ${e.life})`;
+                ctx.strokeStyle = `rgba(255, 215, 0, ${e.life})`;
                 ctx.lineWidth = 6 * proj.scale;
                 ctx.stroke();
             }
