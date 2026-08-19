@@ -88,9 +88,8 @@
     let timeLeft = 60;
     let isGameOver = false;
     let startTime = Date.now();
-    let endTimeString = ""; // 🔥 수정 1: 게임 종료 시각을 고정으로 저장해둘 변수 추가!
+    let endTimeString = ""; 
 
-    // 🔥 수정한 부분 16: 이펙트(별가루, 파동)를 저장할 배열 추가!
     let effects = [];
 
     const court = {
@@ -198,10 +197,29 @@
     let isDragging = false;
     let startX = 0, startY = 0;
 
+    // 🔥 수정 4: 해상도(QHD 등)나 화면 크기에 상관없이 픽셀 거리를 게임 내부 500x700 크기에 맞게 압축/보정!
     function getPos(e) {
-        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
-        return { x: e.clientX, y: e.clientY };
+        const rect = canvas.getBoundingClientRect(); // 화면에 표시된 캔버스의 실제 크기와 위치
+        const scaleX = canvas.width / rect.width;    // 가로 비율 보정
+        const scaleY = canvas.height / rect.height;  // 세로 비율 보정
+
+        let cx, cy;
+        if (e.touches && e.touches.length > 0) {
+            cx = e.touches[0].clientX;
+            cy = e.touches[0].clientY;
+        } else if (e.changedTouches && e.changedTouches.length > 0) {
+            cx = e.changedTouches[0].clientX;
+            cy = e.changedTouches[0].clientY;
+        } else {
+            cx = e.clientX;
+            cy = e.clientY;
+        }
+        
+        // 브라우저 픽셀 좌표를 500x700 게임 좌표계로 완벽하게 변환해서 반환!
+        return { 
+            x: (cx - rect.left) * scaleX, 
+            y: (cy - rect.top) * scaleY 
+        };
     }
 
     function startDrag(e) {
@@ -234,7 +252,7 @@
         timeLeft = 60;
         isGameOver = false;
         startTime = Date.now();
-        endTimeString = ""; // 재시작 시 텍스트 초기화
+        endTimeString = ""; 
         activeBalls = [];
         effects = []; 
         
@@ -272,19 +290,18 @@
     function updatePhysics() {
         court.update(timeLeft);
 
-        // 🔥 수정한 부분 17: 이펙트(별가루, 파동) 물리 로직 업데이트
         for (let i = effects.length - 1; i >= 0; i--) {
             let e = effects[i];
             if (e.type === 'star') {
                 e.x += e.vx;
                 e.y += e.vy;
                 e.z += e.vz;
-                e.vy += 0.5; // 별가루 중력
-                e.rot += e.vRot; // 빙글빙글
-                e.life -= 0.02;  // 서서히 사라짐
+                e.vy += 0.5; 
+                e.rot += e.vRot; 
+                e.life -= 0.02;  
             } else if (e.type === 'hit') {
-                e.size += 3;     // 파동 커짐
-                e.life -= 0.05;  // 서서히 사라짐
+                e.size += 3;     
+                e.life -= 0.05;  
             }
             if (e.life <= 0) effects.splice(i, 1);
         }
@@ -313,7 +330,6 @@
                 b.vx *= 0.8;
             }
 
-            // 1. 림 충돌 
             for (let rp of currentRimPoints) {
                 if (b.vy < 0 && b.y > court.hoopY + 10) continue; 
 
@@ -337,7 +353,6 @@
                 }
             }
 
-            // 2. 백보드 충돌 (빨간 네모 스윗스팟 분리 + 타격 이펙트는 무조건 터짐!)
             if (b.vz > 0 && 
                 b.z >= court.backboardZ - b.radius && 
                 b.z <= court.backboardZ + b.radius) { 
@@ -352,10 +367,8 @@
                     
                     b.z = court.backboardZ - b.radius; 
 
-                    // 🔥 수정한 부분 23: 백보드 어디를 맞추든 무조건 노란 파동 이펙트는 터짐!
                     effects.push({ type: 'hit', x: b.x, y: b.y, z: court.backboardZ, life: 1.0, size: 10 }); 
 
-                    // 빨간 네모(스윗스팟) 범위 계산
                     let targetW = 100;
                     let targetH = 80;
                     let targetTopY = court.hoopY - 40 - targetH;
@@ -369,20 +382,17 @@
                     );
 
                     if (hitSweetSpot) {
-                        // 🌟 [빨간 네모 명중!] 찰지게 골대 안으로 튕겨줌
                         b.vz *= -0.4; 
                         b.vx *= 0.4; 
                         b.vy *= 0.6;
                     } else {
-                        // 💦 [그냥 하얀 판 맞음] 스윗스팟 빗나감! 엉뚱하게 튕겨나감
-                        b.vz *= -0.7; // 더 튕겨나옴
-                        b.vx *= 0.9;  // 옆으로 날아감
+                        b.vz *= -0.7; 
+                        b.vx *= 0.9;  
                         b.vy *= 0.9;
                     }
                 }
             }
 
-            // 3. 득점 판정
             if (b.vy > 0 && b.oldY < court.hoopY && b.y >= court.hoopY) {
                 const distFromCenter = Math.hypot(b.x - court.offsetX, b.z - court.hoopZ);
                 if (distFromCenter < 30) { 
@@ -393,7 +403,6 @@
                         b.vy *= 0.5;
                         b.vz *= 0.4;
 
-                        // 🔥 수정한 부분 19: 골인 시 림 주변에서 황금 별가루 10개 팡! 터짐
                         for (let k = 0; k < 12; k++) {
                             effects.push({
                                 type: 'star',
@@ -413,7 +422,6 @@
             if (b.y > 1200) activeBalls.splice(i, 1);
         }
 
-        // 공끼리 부딪히는 물리 엔진 로직 
         for (let i = 0; i < activeBalls.length; i++) {
             for (let j = i + 1; j < activeBalls.length; j++) {
                 let b1 = activeBalls[i];
@@ -496,7 +504,6 @@
                 isGameOver = true;
                 restartBtn.style.display = "block"; 
                 
-                // 🔥 수정 2: 게임 끝나는 바로 이 순간에 시간을 딱 1번만 구해서 변수에 박제!
                 const now = new Date();
                 endTimeString = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
             }
@@ -511,13 +518,10 @@
 
         activeBalls.sort((a, b) => b.z - a.z); 
 
-        // 1. 백보드 뒤의 공
         activeBalls.forEach(b => { if (b.z > court.backboardZ) drawBall(b); });
 
-        // 2. 백보드 및 뒷 림
         court.drawBackboard();
         
-        // 🔥 수정한 부분 20: 백보드 맞을 때 생기는 하얀 파동 그리기 (백보드 바로 위에 그림)
         effects.forEach(e => {
             if (e.type === 'hit') {
                 const proj = project3D(e.x, e.y, e.z);
@@ -531,17 +535,14 @@
 
         court.drawRimBack();
 
-        // 3. 백보드와 림 사이의 공
         activeBalls.forEach(b => { if (b.z <= court.backboardZ && b.z > court.hoopZ) drawBall(b); });
 
-        // 4. 앞 림
         court.drawRimFront();
 
-        // 🔥 수정한 부분 21: 골인 시 생기는 황금 별가루 그리기 (림 앞쪽에 그림)
         effects.forEach(e => {
             if (e.type === 'star') {
                 const proj = project3D(e.x, e.y, e.z);
-                let r = 15 * proj.scale * e.life; // 사라지면서 점점 작아짐
+                let r = 15 * proj.scale * e.life; 
                 ctx.save();
                 ctx.translate(proj.x, proj.y);
                 ctx.rotate(e.rot);
@@ -554,13 +555,12 @@
                                -Math.sin((54 + j * 72) * Math.PI / 180) * r * 0.5);
                 }
                 ctx.closePath();
-                ctx.fillStyle = "#f1c40f"; // 황금색
+                ctx.fillStyle = "#f1c40f"; 
                 ctx.fill();
                 ctx.restore();
             }
         });
 
-        // 5. 림보다 앞쪽의 공
         activeBalls.forEach(b => { if (b.z <= court.hoopZ) drawBall(b); });
 
         if (!isGameOver) {
@@ -618,8 +618,7 @@
             ctx.font = "bold 35px 'Malgun Gothic'";
             ctx.fillText(`최종 점수: ${score}점`, canvas.width/2, canvas.height/2 + 10);
 
-            // 🔥 수정 3: 매 프레임 실시간 업데이트 대신, 박제된 시간을 화면에 표시!
-            ctx.fillStyle = "#bdc3c7"; // 살짝 연한 밝은 회색
+            ctx.fillStyle = "#bdc3c7"; 
             ctx.font = "bold 18px 'Malgun Gothic'";
             ctx.fillText(`기록 일시: ${endTimeString}`, canvas.width/2, canvas.height/2 + 60);
         }
