@@ -335,29 +335,30 @@
                 }
             }
 
-            // 2. 백보드 충돌 (빨간 네모 스윗스팟 분리 버전!)
+            // 2. 백보드 충돌 (빨간 네모 스윗스팟 분리 + 타격 이펙트는 무조건 터짐!)
             if (b.vz > 0 && 
                 b.z >= court.backboardZ - b.radius && 
                 b.z <= court.backboardZ + b.radius) { 
                 
                 let backboardTopY = court.backboardY - court.backboardH/2;
-                let hitMargin = 40; // 널널한 전체 판정 
+                let hitMargin = 40; 
                 
-                // 일단 백보드(하얀 판) 전체 범위에 맞았는지 확인!
                 if (b.x > court.offsetX - court.backboardW/2 - hitMargin && 
                     b.x < court.offsetX + court.backboardW/2 + hitMargin &&
                     b.y > backboardTopY - hitMargin &&  
                     b.y < court.backboardY + court.backboardH/2 + hitMargin) {
                     
-                    b.z = court.backboardZ - b.radius; // 벽에 파고들지 않게 고정
+                    b.z = court.backboardZ - b.radius; 
 
-                    // 🔥 빨간 네모(스윗스팟) 범위 계산
+                    // 🔥 수정한 부분 23: 백보드 어디를 맞추든 무조건 노란 파동 이펙트는 터짐!
+                    effects.push({ type: 'hit', x: b.x, y: b.y, z: court.backboardZ, life: 1.0, size: 10 }); 
+
+                    // 빨간 네모(스윗스팟) 범위 계산
                     let targetW = 100;
                     let targetH = 80;
                     let targetTopY = court.hoopY - 40 - targetH;
                     let targetBottomY = court.hoopY - 40;
 
-                    // 공이 빨간 네모 안에 맞았는지 체크!
                     let hitSweetSpot = (
                         b.x > court.offsetX - targetW/2 && 
                         b.x < court.offsetX + targetW/2 &&
@@ -368,13 +369,11 @@
                     if (hitSweetSpot) {
                         // 🌟 [빨간 네모 명중!] 찰지게 골대 안으로 튕겨줌
                         b.vz *= -0.4; 
-                        b.vx *= 0.4; // 림으로 향하게 좌우 튕김 줄임
+                        b.vx *= 0.4; 
                         b.vy *= 0.6;
-                        
-                        effects.push({ type: 'hit', x: b.x, y: b.y, z: court.backboardZ, life: 1.0, size: 10 }); // 노란 파동 터짐
                     } else {
                         // 💦 [그냥 하얀 판 맞음] 스윗스팟 빗나감! 엉뚱하게 튕겨나감
-                        b.vz *= -0.7; // 더 튕겨나옴 (튕겨서 안 들어감)
+                        b.vz *= -0.7; // 더 튕겨나옴
                         b.vx *= 0.9;  // 옆으로 날아감
                         b.vy *= 0.9;
                     }
