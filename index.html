@@ -93,25 +93,55 @@
     // 골대 세팅
     const court = {
         backboardZ: 250, 
-        backboardY: 150, 
+        baseBackboardY: 150, // 🔥 수정한 부분 8: 상하 무빙을 위한 기준점 추가
         backboardW: 260,
         backboardH: 180,
         hoopZ: 200,      
-        hoopY: 250,      
+        baseHoopY: 250,      // 🔥 수정한 부분 8: 상하 무빙을 위한 기준점 추가
         hoopRadius: 70,  
+        
+        backboardY: 150,     // 실제 화면에 그려질 Y 좌표
+        hoopY: 250,          // 실제 화면에 그려질 Y 좌표
+        
         offsetX: 0,
+        offsetY: 0,          // 🔥 수정한 부분 8: 상하 이동을 위한 Y축 편차 추가
         
         // 🔥 수정한 부분 2: 골대 좌우 무빙 속도를 반으로 줄임 (원래 3 -> 1.5 변경)
-        moveSpeed: 1.5,
-        direction: 1,
+        moveSpeedX: 1.5,     // 이름 변경 (moveSpeed -> moveSpeedX)
+        moveSpeedY: 2,       // 🔥 수정한 부분 8: 위아래 속도 변수 추가
+        directionX: 1,       // 이름 변경 (direction -> directionX)
+        directionY: 1,       // 🔥 수정한 부분 8: 위아래 방향 변수 추가
 
         update(time) {
-            if (time <= 30) {
-                this.offsetX += this.moveSpeed * this.direction;
-                if (this.offsetX > 200 || this.offsetX < -200) { // 골대 좌우 이동범위
-                    this.direction *= -1;
+            // 🔥 수정한 부분 8: 시간에 따른 광란의 림 모드 로직 추가
+            if (time <= 40 && time > 20) {
+                // 1단계: 40초 ~ 20초 (좌우로만 이동)
+                this.offsetX += this.moveSpeedX * this.directionX;
+                if (this.offsetX > 200 || this.offsetX < -200) { 
+                    this.directionX *= -1;
+                }
+                this.offsetY = 0; // 위아래 이동 없음
+            }
+            else if (time <= 20) {
+                // 2단계: 20초 이하 (상하좌우 미친 랜덤 무빙!)
+                this.offsetX += this.moveSpeedX * this.directionX;
+                this.offsetY += this.moveSpeedY * this.directionY;
+
+                // X축: 벽에 닿거나 2% 확률로 갑자기 방향/속도 꺾기
+                if (this.offsetX > 200 || this.offsetX < -200 || Math.random() < 0.02) {
+                    this.directionX = this.offsetX > 0 ? -1 : 1;
+                    this.moveSpeedX = Math.random() * 3 + 1.5; 
+                }
+                // Y축: 상하 한계선에 닿거나 2% 확률로 꺾기
+                if (this.offsetY > 40 || this.offsetY < -100 || Math.random() < 0.02) {
+                    this.directionY = this.offsetY > 0 ? -1 : 1;
+                    this.moveSpeedY = Math.random() * 3 + 1.5; 
                 }
             }
+
+            // 계산된 위치를 충돌 판정과 그리기에 실시간 반영!
+            this.backboardY = this.baseBackboardY + this.offsetY;
+            this.hoopY = this.baseHoopY + this.offsetY;
         },
 
         drawBackboard() {
@@ -210,22 +240,28 @@
         isGameOver = false;
         startTime = Date.now();
         activeBalls = [];
+        
+        // 🔥 수정한 부분 9: 재시작 시 광란 모드 변수들 초기화
         court.offsetX = 0;
-        court.direction = 1;
+        court.offsetY = 0;
+        court.directionX = 1;
+        court.directionY = 1;
+        court.moveSpeedX = 1.5;
+        court.moveSpeedY = 2;
+        
         restartBtn.style.display = "none"; 
     });
 
     function shootBall(dx, dy) {
-        // 🔥 수정한 부분 3: 공이 위로 솟구치는 속도를 대폭 줄임 (원래 0.20 -> 0.12)
         let powerY = dy * 0.15; 
         
-        // 🔥 수정한 부분 4: 솟구치는 힘이 너무 셀 때 걸어두는 최대 제한치도 낮춤 (원래 -43 -> -35)
-        if (powerY < -40) powerY = -40; 
+        // 🔥 수정한 부분 4: 솟구치는 힘이 너무 셀 때 걸리는 제한을 확 풀었어! 더 높이 날아가게! (원래 -40 -> -55)
+        if (powerY < -55) powerY = -55; 
 
-        // 🔥 수정한 부분 5: 공이 앞으로(골대 쪽으로 Z축) 날아가는 속도도 부드럽게 살짝 줄임 (원래 0.02 -> 0.015)
+        // 🔥 수정한 부분 5: 공이 앞으로 날아가는 속도 (유지)
         let powerZ = Math.abs(dy) * 0.015; 
         
-        // 🔥 수정한 부분 6: 앞으로 날아가는 최대 속도 제한치도 낮춤 (원래 13 -> 11)
+        // 🔥 수정한 부분 6: 앞으로 날아가는 최대 속도 제한치 (유지)
         if (powerZ > 13) powerZ = 13; 
 
         activeBalls.push({
@@ -233,7 +269,7 @@
             y: 600, 
             z: 0,
             
-            // 🔥 수정한 부분 7: 좌우(X축)로 휘는 속도도 살짝 잡아줌 (원래 0.1 -> 0.08)
+            // 🔥 수정한 부분 7: 좌우 휘는 속도 (유지)
             vx: dx * 0.08,
             vy: powerY,
             vz: powerZ,
@@ -250,7 +286,7 @@
 
         const currentRimPoints = rimPoints.map(p => ({
             x: court.offsetX + p.offsetX,
-            y: court.hoopY,
+            y: court.hoopY, // 🔥 동적으로 바뀐 Y좌표 적용
             z: court.hoopZ + p.offsetZ
         }));
 
@@ -266,9 +302,9 @@
 
             b.rotation += b.angularVelocity;
 
-            // 천장 충돌
-            if (b.y < -100) {
-                b.y = -100;
+            // 🔥 수정한 부분 12: 천장 한계를 엄청 높여서 뒤로 넘어가도록 함 (원래 -100 -> -500)
+            if (b.y < -500) {
+                b.y = -500;
                 b.vy *= -0.6; 
                 b.vx *= 0.8;
             }
@@ -299,9 +335,12 @@
 
             // 2. 백보드 충돌
             if (b.vz > 0 && b.z >= court.backboardZ - b.radius) {
+                // 현재 백보드의 꼭대기(상단) Y좌표 계산
+                let backboardTopY = court.backboardY - court.backboardH/2;
+                
                 if (b.x > court.offsetX - court.backboardW/2 && 
                     b.x < court.offsetX + court.backboardW/2 &&
-                    b.y > court.backboardY - court.backboardH/2 && 
+                    b.y > backboardTopY &&  // 🔥 이 조건 덕분에 높이 던지면 뒤로 슝 넘어감!
                     b.y < court.backboardY + court.backboardH/2) {
                     
                     b.z = court.backboardZ - b.radius;
@@ -327,6 +366,84 @@
 
             if (b.y > 1200) activeBalls.splice(i, 1);
         }
+
+        // 🔥 수정한 부분 11: 🚀 공끼리 부딪히고 튕기는 물리 엔진 로직 추가! 🚀
+        for (let i = 0; i < activeBalls.length; i++) {
+            for (let j = i + 1; j < activeBalls.length; j++) {
+                let b1 = activeBalls[i];
+                let b2 = activeBalls[j];
+
+                let dx = b2.x - b1.x;
+                let dy = b2.y - b1.y;
+                let dz = b2.z - b1.z;
+                
+                // 3D 공간에서 두 공의 실제 거리 계산
+                let dist = Math.hypot(dx, dy, dz);
+                let minDist = b1.radius + b2.radius;
+
+                // 거리가 반지름 합보다 작으면(충돌하면)
+                if (dist < minDist && dist > 0) {
+                    // 겹침 방지 (서로 조금씩 밀어냄)
+                    let overlap = minDist - dist;
+                    let nx = dx / dist;
+                    let ny = dy / dist;
+                    let nz = dz / dist;
+
+                    b1.x -= nx * (overlap / 2);
+                    b1.y -= ny * (overlap / 2);
+                    b1.z -= nz * (overlap / 2);
+                    b2.x += nx * (overlap / 2);
+                    b2.y += ny * (overlap / 2);
+                    b2.z += nz * (overlap / 2);
+
+                    // 속도 교환 (튕기기)
+                    let rvx = b2.vx - b1.vx;
+                    let rvy = b2.vy - b1.vy;
+                    let rvz = b2.vz - b1.vz;
+
+                    let velAlongNormal = rvx * nx + rvy * ny + rvz * nz;
+                    
+                    if (velAlongNormal > 0) continue; // 이미 멀어지고 있으면 패스
+
+                    let restitution = 0.7; // 튕기는 탄성 (숫자 줄이면 덜 튕김)
+                    let impulse = -(1 + restitution) * velAlongNormal / 2;
+
+                    b1.vx -= impulse * nx;
+                    b1.vy -= impulse * ny;
+                    b1.vz -= impulse * nz;
+                    b2.vx += impulse * nx;
+                    b2.vy += impulse * ny;
+                    b2.vz += impulse * nz;
+                }
+            }
+        }
+    }
+
+    // 🔥 수정한 부분 13: 공을 그리는 코드를 깔끔하게 함수 하나로 정리했어!
+    function drawBall(b) {
+        const proj = project3D(b.x, b.y, b.z);
+        const r = b.radius * proj.scale;
+        
+        if (tigerImg.complete) {
+            ctx.save(); 
+            ctx.translate(proj.x, proj.y);
+            ctx.rotate(b.rotation);
+            ctx.drawImage(tigerImg, -r, -r, r * 2, r * 2);
+            ctx.restore(); 
+
+            const gradient = ctx.createRadialGradient(
+                proj.x - r * 0.3, proj.y - r * 0.3, r * 0.1,  
+                proj.x, proj.y, r                             
+            );
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)'); 
+            gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0)');       
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');       
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(proj.x, proj.y, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
     function draw() {
@@ -347,68 +464,25 @@
         ctx.fillText(score, canvas.width/2, canvas.height/2 + 50);
         ctx.textBaseline = "alphabetic";
 
+        // 🔥 수정한 부분 13: Z값에 맞춰 완벽하게 3단계 레이어로 나눠서 그림! (뒤로 넘어간 공이 진짜 백보드 뒤에 숨겨짐)
+        activeBalls.sort((a, b) => b.z - a.z); // 먼 공부터 그리기
+
+        // 1. 레이어: 백보드보다 멀리 날아간(뒤로 넘어간) 공들
+        activeBalls.forEach(b => { if (b.z > court.backboardZ) drawBall(b); });
+
+        // 2. 레이어: 백보드와 림 뒷부분 그리기
         court.drawBackboard();
         court.drawRimBack();
 
-        activeBalls.sort((a, b) => b.z - a.z);
+        // 3. 레이어: 백보드와 림 사이에 있는 공들
+        activeBalls.forEach(b => { if (b.z <= court.backboardZ && b.z > court.hoopZ) drawBall(b); });
 
-        activeBalls.forEach(b => {
-            if (b.z > court.hoopZ) {
-                const proj = project3D(b.x, b.y, b.z);
-                const r = b.radius * proj.scale;
-                
-                if (tigerImg.complete) {
-                    ctx.save(); 
-                    ctx.translate(proj.x, proj.y);
-                    ctx.rotate(b.rotation);
-                    ctx.drawImage(tigerImg, -r, -r, r * 2, r * 2);
-                    ctx.restore(); 
-
-                    const gradient = ctx.createRadialGradient(
-                        proj.x - r * 0.3, proj.y - r * 0.3, r * 0.1,  
-                        proj.x, proj.y, r                             
-                    );
-                    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)'); 
-                    gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0)');       
-                    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');       
-                    
-                    ctx.fillStyle = gradient;
-                    ctx.beginPath();
-                    ctx.arc(proj.x, proj.y, r, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-        });
-
+        // 4. 레이어: 림 앞부분 그리기
         court.drawRimFront();
 
-        activeBalls.forEach(b => {
-            if (b.z <= court.hoopZ) {
-                const proj = project3D(b.x, b.y, b.z);
-                const r = b.radius * proj.scale;
-                
-                if (tigerImg.complete) {
-                    ctx.save(); 
-                    ctx.translate(proj.x, proj.y);
-                    ctx.rotate(b.rotation);
-                    ctx.drawImage(tigerImg, -r, -r, r * 2, r * 2);
-                    ctx.restore(); 
+        // 5. 레이어: 림보다 더 앞에(플레이어 쪽에) 있는 공들
+        activeBalls.forEach(b => { if (b.z <= court.hoopZ) drawBall(b); });
 
-                    const gradient = ctx.createRadialGradient(
-                        proj.x - r * 0.3, proj.y - r * 0.3, r * 0.1,  
-                        proj.x, proj.y, r                             
-                    );
-                    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)'); 
-                    gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0)');       
-                    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');       
-                    
-                    ctx.fillStyle = gradient;
-                    ctx.beginPath();
-                    ctx.arc(proj.x, proj.y, r, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-        });
 
         if (!isGameOver) {
             const readyProj = project3D(0, 560, 0);
@@ -444,10 +518,15 @@
         ctx.textAlign = "left";
         ctx.fillText(`남은 시간: ${timeLeft}초`, 20, 35);
         
-        if (timeLeft <= 30 && !isGameOver) {
-            ctx.fillStyle = "#e74c3c";
+        // 🔥 수정한 부분 10: 남은 시간에 따른 텍스트 및 컬러 변경 (40초 / 20초)
+        if (timeLeft <= 40 && timeLeft > 20 && !isGameOver) {
+            ctx.fillStyle = "#e74c3c"; // 빨간색
             ctx.textAlign = "right";
-            ctx.fillText(`🔥 무빙 활성화`, canvas.width - 20, 35);
+            ctx.fillText(`🔥 무빙 시작!`, canvas.width - 20, 35);
+        } else if (timeLeft <= 20 && !isGameOver) {
+            ctx.fillStyle = "#8e44ad"; // 보라색 광란 경고!
+            ctx.textAlign = "right";
+            ctx.fillText(`👿 광란 모드!`, canvas.width - 20, 35);
         }
 
         if (isGameOver) {
