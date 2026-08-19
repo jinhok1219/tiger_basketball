@@ -106,7 +106,7 @@
         update(time) {
             if (time <= 30) {
                 this.offsetX += this.moveSpeed * this.direction;
-                if (this.offsetX > 100 || this.offsetX < -100) {
+                if (this.offsetX > 150 || this.offsetX < -150) { // 골대 좌우 이동범위
                     this.direction *= -1;
                 }
             }
@@ -215,16 +215,16 @@
 
     function shootBall(dx, dy) {
         // 🔥 수정한 부분 3: 공이 위로 솟구치는 속도를 대폭 줄임 (원래 0.20 -> 0.12)
-        let powerY = dy * 0.12; 
+        let powerY = dy * 0.15; 
         
         // 🔥 수정한 부분 4: 솟구치는 힘이 너무 셀 때 걸어두는 최대 제한치도 낮춤 (원래 -43 -> -35)
-        if (powerY < -35) powerY = -35; 
+        if (powerY < -40) powerY = -40; 
 
         // 🔥 수정한 부분 5: 공이 앞으로(골대 쪽으로 Z축) 날아가는 속도도 부드럽게 살짝 줄임 (원래 0.02 -> 0.015)
         let powerZ = Math.abs(dy) * 0.015; 
         
         // 🔥 수정한 부분 6: 앞으로 날아가는 최대 속도 제한치도 낮춤 (원래 13 -> 11)
-        if (powerZ > 11) powerZ = 11; 
+        if (powerZ > 13) powerZ = 13; 
 
         activeBalls.push({
             x: 0,
