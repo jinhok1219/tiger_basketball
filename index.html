@@ -62,7 +62,6 @@
 <body>
 
 <canvas id="gameCanvas" width="500" height="700"></canvas>
-<!-- 재시작 버튼 HTML -->
 <button id="restartBtn">다시 하기 🔄</button>
 
 <script>
@@ -90,56 +89,51 @@
     let isGameOver = false;
     let startTime = Date.now();
 
-    // 골대 세팅
+    // 🔥 수정한 부분 16: 이펙트(별가루, 파동)를 저장할 배열 추가!
+    let effects = [];
+
     const court = {
         backboardZ: 250, 
-        baseBackboardY: 150, // 🔥 수정한 부분 8: 상하 무빙을 위한 기준점 추가
+        baseBackboardY: 150, 
         backboardW: 260,
         backboardH: 180,
         hoopZ: 200,      
-        baseHoopY: 250,      // 🔥 수정한 부분 8: 상하 무빙을 위한 기준점 추가
+        baseHoopY: 250,      
         hoopRadius: 70,  
         
-        backboardY: 150,     // 실제 화면에 그려질 Y 좌표
-        hoopY: 250,          // 실제 화면에 그려질 Y 좌표
+        backboardY: 150,     
+        hoopY: 250,          
         
         offsetX: 0,
-        offsetY: 0,          // 🔥 수정한 부분 8: 상하 이동을 위한 Y축 편차 추가
+        offsetY: 0,          
         
-        // 🔥 수정한 부분 2: 골대 좌우 무빙 속도를 반으로 줄임 (원래 3 -> 1.5 변경)
-        moveSpeedX: 1.5,     // 이름 변경 (moveSpeed -> moveSpeedX)
-        moveSpeedY: 2,       // 🔥 수정한 부분 8: 위아래 속도 변수 추가
-        directionX: 1,       // 이름 변경 (direction -> directionX)
-        directionY: 1,       // 🔥 수정한 부분 8: 위아래 방향 변수 추가
+        moveSpeedX: 1.5,     
+        moveSpeedY: 2,       
+        directionX: 1,       
+        directionY: 1,       
 
         update(time) {
-            // 🔥 수정한 부분 8: 시간에 따른 광란의 림 모드 로직 추가
             if (time <= 40 && time > 20) {
-                // 1단계: 40초 ~ 20초 (좌우로만 이동)
                 this.offsetX += this.moveSpeedX * this.directionX;
                 if (this.offsetX > 200 || this.offsetX < -200) { 
                     this.directionX *= -1;
                 }
-                this.offsetY = 0; // 위아래 이동 없음
+                this.offsetY = 0; 
             }
             else if (time <= 20) {
-                // 2단계: 20초 이하 (상하좌우 미친 랜덤 무빙!)
                 this.offsetX += this.moveSpeedX * this.directionX;
                 this.offsetY += this.moveSpeedY * this.directionY;
 
-                // X축: 벽에 닿거나 2% 확률로 갑자기 방향/속도 꺾기
                 if (this.offsetX > 200 || this.offsetX < -200 || Math.random() < 0.02) {
                     this.directionX = this.offsetX > 0 ? -1 : 1;
                     this.moveSpeedX = Math.random() * 3 + 1.5; 
                 }
-                // Y축: 상하 한계선에 닿거나 2% 확률로 꺾기
                 if (this.offsetY > 40 || this.offsetY < -100 || Math.random() < 0.02) {
                     this.directionY = this.offsetY > 0 ? -1 : 1;
                     this.moveSpeedY = Math.random() * 3 + 1.5; 
                 }
             }
 
-            // 계산된 위치를 충돌 판정과 그리기에 실시간 반영!
             this.backboardY = this.baseBackboardY + this.offsetY;
             this.hoopY = this.baseHoopY + this.offsetY;
         },
@@ -240,8 +234,8 @@
         isGameOver = false;
         startTime = Date.now();
         activeBalls = [];
+        effects = []; // 재시작 시 이펙트 초기화
         
-        // 🔥 수정한 부분 9: 재시작 시 광란 모드 변수들 초기화
         court.offsetX = 0;
         court.offsetY = 0;
         court.directionX = 1;
@@ -254,22 +248,14 @@
 
     function shootBall(dx, dy) {
         let powerY = dy * 0.15; 
-        
-        // 🔥 수정한 부분 4: 솟구치는 힘이 너무 셀 때 걸리는 제한을 확 풀었어! 더 높이 날아가게! (원래 -40 -> -55)
         if (powerY < -55) powerY = -55; 
-
-        // 🔥 수정한 부분 5: 공이 앞으로 날아가는 속도 (유지)
         let powerZ = Math.abs(dy) * 0.015; 
-        
-        // 🔥 수정한 부분 6: 앞으로 날아가는 최대 속도 제한치 (유지)
         if (powerZ > 13) powerZ = 13; 
 
         activeBalls.push({
             x: 0,
             y: 600, 
             z: 0,
-            
-            // 🔥 수정한 부분 7: 좌우 휘는 속도 (유지)
             vx: dx * 0.08,
             vy: powerY,
             vz: powerZ,
@@ -284,9 +270,26 @@
     function updatePhysics() {
         court.update(timeLeft);
 
+        // 🔥 수정한 부분 17: 이펙트(별가루, 파동) 물리 로직 업데이트
+        for (let i = effects.length - 1; i >= 0; i--) {
+            let e = effects[i];
+            if (e.type === 'star') {
+                e.x += e.vx;
+                e.y += e.vy;
+                e.z += e.vz;
+                e.vy += 0.5; // 별가루 중력
+                e.rot += e.vRot; // 빙글빙글
+                e.life -= 0.02;  // 서서히 사라짐
+            } else if (e.type === 'hit') {
+                e.size += 3;     // 파동 커짐
+                e.life -= 0.05;  // 서서히 사라짐
+            }
+            if (e.life <= 0) effects.splice(i, 1);
+        }
+
         const currentRimPoints = rimPoints.map(p => ({
             x: court.offsetX + p.offsetX,
-            y: court.hoopY, // 🔥 동적으로 바뀐 Y좌표 적용
+            y: court.hoopY, 
             z: court.hoopZ + p.offsetZ
         }));
 
@@ -302,7 +305,6 @@
 
             b.rotation += b.angularVelocity;
 
-            // 🔥 수정한 부분 12: 천장 한계를 엄청 높여서 뒤로 넘어가도록 함 (원래 -100 -> -500)
             if (b.y < -500) {
                 b.y = -500;
                 b.vy *= -0.6; 
@@ -333,12 +335,10 @@
                 }
             }
 
-            // 2. 백보드 충돌
-            // 🔥 수정한 부분 14: 공이 백보드 뒤로 넘어갔을 때 다시 튕겨나오는 '투명 벽' 버그 완벽 해결!
-            // z축 깊이 판정에 상한선(b.z <= court.backboardZ + b.radius)을 추가해서 진짜 백보드 두께만큼만 판정함!
+            // 2. 백보드 충돌 (뱅크슛 투명벽 해결 버전!)
             if (b.vz > 0 && 
                 b.z >= court.backboardZ - b.radius && 
-                b.z <= court.backboardZ + b.radius) { // 👈 이 한 줄이 핵심 마법!
+                b.z <= court.backboardZ + b.radius) { 
                 
                 let backboardTopY = court.backboardY - court.backboardH/2;
                 
@@ -348,11 +348,17 @@
                     b.y < court.backboardY + court.backboardH/2) {
                     
                     b.z = court.backboardZ - b.radius;
-                    
-                    // 🔥 수정한 부분 15: 빨간 네모(백보드 중앙) 맞췄을 때 림으로 더 찰지게 빨려 들어가도록 탄성 조절!
-                    b.vz *= -0.4; // 골대(앞쪽)로 조금 더 힘있게 뱉어내게 수정 (원래 -0.3)
+                    b.vz *= -0.4; 
                     b.vx *= 0.6;
                     b.vy *= 0.8;
+
+                    // 🔥 수정한 부분 18: 백보드 타격 시 하얀 파동 이펙트 생성!
+                    effects.push({
+                        type: 'hit',
+                        x: b.x, y: b.y, z: court.backboardZ,
+                        life: 1.0, 
+                        size: 10
+                    });
                 }
             }
 
@@ -366,6 +372,20 @@
                         b.vx *= 0.4;
                         b.vy *= 0.5;
                         b.vz *= 0.4;
+
+                        // 🔥 수정한 부분 19: 골인 시 림 주변에서 황금 별가루 10개 팡! 터짐
+                        for (let k = 0; k < 12; k++) {
+                            effects.push({
+                                type: 'star',
+                                x: court.offsetX, y: court.hoopY, z: court.hoopZ,
+                                vx: (Math.random() - 0.5) * 16,
+                                vy: (Math.random() - 1) * 15,
+                                vz: (Math.random() - 0.5) * 10,
+                                life: 1.0,
+                                rot: Math.random() * Math.PI * 2,
+                                vRot: (Math.random() - 0.5) * 0.5
+                            });
+                        }
                     }
                 }
             }
@@ -373,7 +393,7 @@
             if (b.y > 1200) activeBalls.splice(i, 1);
         }
 
-        // 🔥 수정한 부분 11: 🚀 공끼리 부딪히고 튕기는 물리 엔진 로직 추가! 🚀
+        // 공끼리 부딪히는 물리 엔진 로직 
         for (let i = 0; i < activeBalls.length; i++) {
             for (let j = i + 1; j < activeBalls.length; j++) {
                 let b1 = activeBalls[i];
@@ -383,13 +403,10 @@
                 let dy = b2.y - b1.y;
                 let dz = b2.z - b1.z;
                 
-                // 3D 공간에서 두 공의 실제 거리 계산
                 let dist = Math.hypot(dx, dy, dz);
                 let minDist = b1.radius + b2.radius;
 
-                // 거리가 반지름 합보다 작으면(충돌하면)
                 if (dist < minDist && dist > 0) {
-                    // 겹침 방지 (서로 조금씩 밀어냄)
                     let overlap = minDist - dist;
                     let nx = dx / dist;
                     let ny = dy / dist;
@@ -402,16 +419,15 @@
                     b2.y += ny * (overlap / 2);
                     b2.z += nz * (overlap / 2);
 
-                    // 속도 교환 (튕기기)
                     let rvx = b2.vx - b1.vx;
                     let rvy = b2.vy - b1.vy;
                     let rvz = b2.vz - b1.vz;
 
                     let velAlongNormal = rvx * nx + rvy * ny + rvz * nz;
                     
-                    if (velAlongNormal > 0) continue; // 이미 멀어지고 있으면 패스
+                    if (velAlongNormal > 0) continue; 
 
-                    let restitution = 0.7; // 튕기는 탄성 (숫자 줄이면 덜 튕김)
+                    let restitution = 0.7; 
                     let impulse = -(1 + restitution) * velAlongNormal / 2;
 
                     b1.vx -= impulse * nx;
@@ -425,7 +441,6 @@
         }
     }
 
-    // 🔥 수정한 부분 13: 공을 그리는 코드를 깔끔하게 함수 하나로 정리했어!
     function drawBall(b) {
         const proj = project3D(b.x, b.y, b.z);
         const r = b.radius * proj.scale;
@@ -470,25 +485,59 @@
         ctx.fillText(score, canvas.width/2, canvas.height/2 + 50);
         ctx.textBaseline = "alphabetic";
 
-        // 🔥 수정한 부분 13: Z값에 맞춰 완벽하게 3단계 레이어로 나눠서 그림! (뒤로 넘어간 공이 진짜 백보드 뒤에 숨겨짐)
-        activeBalls.sort((a, b) => b.z - a.z); // 먼 공부터 그리기
+        activeBalls.sort((a, b) => b.z - a.z); 
 
-        // 1. 레이어: 백보드보다 멀리 날아간(뒤로 넘어간) 공들
+        // 1. 백보드 뒤의 공
         activeBalls.forEach(b => { if (b.z > court.backboardZ) drawBall(b); });
 
-        // 2. 레이어: 백보드와 림 뒷부분 그리기
+        // 2. 백보드 및 뒷 림
         court.drawBackboard();
+        
+        // 🔥 수정한 부분 20: 백보드 맞을 때 생기는 하얀 파동 그리기 (백보드 바로 위에 그림)
+        effects.forEach(e => {
+            if (e.type === 'hit') {
+                const proj = project3D(e.x, e.y, e.z);
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, e.size * proj.scale, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${e.life})`;
+                ctx.lineWidth = 6 * proj.scale;
+                ctx.stroke();
+            }
+        });
+
         court.drawRimBack();
 
-        // 3. 레이어: 백보드와 림 사이에 있는 공들
+        // 3. 백보드와 림 사이의 공
         activeBalls.forEach(b => { if (b.z <= court.backboardZ && b.z > court.hoopZ) drawBall(b); });
 
-        // 4. 레이어: 림 앞부분 그리기
+        // 4. 앞 림
         court.drawRimFront();
 
-        // 5. 레이어: 림보다 더 앞에(플레이어 쪽에) 있는 공들
-        activeBalls.forEach(b => { if (b.z <= court.hoopZ) drawBall(b); });
+        // 🔥 수정한 부분 21: 골인 시 생기는 황금 별가루 그리기 (림 앞쪽에 그림)
+        effects.forEach(e => {
+            if (e.type === 'star') {
+                const proj = project3D(e.x, e.y, e.z);
+                let r = 15 * proj.scale * e.life; // 사라지면서 점점 작아짐
+                ctx.save();
+                ctx.translate(proj.x, proj.y);
+                ctx.rotate(e.rot);
+                ctx.globalAlpha = e.life;
+                ctx.beginPath();
+                for (let j = 0; j < 5; j++) {
+                    ctx.lineTo(Math.cos((18 + j * 72) * Math.PI / 180) * r,
+                               -Math.sin((18 + j * 72) * Math.PI / 180) * r);
+                    ctx.lineTo(Math.cos((54 + j * 72) * Math.PI / 180) * r * 0.5,
+                               -Math.sin((54 + j * 72) * Math.PI / 180) * r * 0.5);
+                }
+                ctx.closePath();
+                ctx.fillStyle = "#f1c40f"; // 황금색
+                ctx.fill();
+                ctx.restore();
+            }
+        });
 
+        // 5. 림보다 앞쪽의 공
+        activeBalls.forEach(b => { if (b.z <= court.hoopZ) drawBall(b); });
 
         if (!isGameOver) {
             const readyProj = project3D(0, 560, 0);
@@ -524,13 +573,12 @@
         ctx.textAlign = "left";
         ctx.fillText(`남은 시간: ${timeLeft}초`, 20, 35);
         
-        // 🔥 수정한 부분 10: 남은 시간에 따른 텍스트 및 컬러 변경 (40초 / 20초)
         if (timeLeft <= 40 && timeLeft > 20 && !isGameOver) {
-            ctx.fillStyle = "#e74c3c"; // 빨간색
+            ctx.fillStyle = "#e74c3c"; 
             ctx.textAlign = "right";
             ctx.fillText(`🔥 무빙 시작!`, canvas.width - 20, 35);
         } else if (timeLeft <= 20 && !isGameOver) {
-            ctx.fillStyle = "#8e44ad"; // 보라색 광란 경고!
+            ctx.fillStyle = "#8e44ad"; 
             ctx.textAlign = "right";
             ctx.fillText(`👿 광란 모드!`, canvas.width - 20, 35);
         }
