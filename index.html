@@ -15,13 +15,18 @@
             font-family: 'Malgun Gothic', sans-serif;
             overflow: hidden;
             touch-action: none; 
-            position: relative; /* 버튼 절대 위치 기준 */
+            position: relative; 
         }
         canvas {
             background-color: #f5f6fa; 
             box-shadow: 0 0 20px rgba(0,0,0,0.3);
             border-radius: 10px;
             cursor: pointer;
+            
+            /* 🔥 수정한 부분 1: 폰 화면 잘림 방지 (화면 크기에 딱 맞게 자동 조절) */
+            max-width: 100vw; 
+            max-height: 100vh;
+            object-fit: contain; 
         }
         /* 🔥 멋진 재시작 버튼 스타일 🔥 */
         #restartBtn {
@@ -40,7 +45,7 @@
             cursor: pointer;
             box-shadow: 0 6px 15px rgba(231, 76, 60, 0.4);
             transition: all 0.2s;
-            display: none; /* 게임 중엔 숨김! */
+            display: none; 
             z-index: 10;
         }
         #restartBtn:hover {
@@ -93,7 +98,9 @@
         hoopY: 250,      
         hoopRadius: 70,  
         offsetX: 0,
-        moveSpeed: 3,
+        
+        // 🔥 수정한 부분 2: 골대 좌우 무빙 속도를 반으로 줄임 (원래 3 -> 1.5 변경)
+        moveSpeed: 1.5,
         direction: 1,
 
         update(time) {
@@ -195,7 +202,6 @@
     canvas.addEventListener('mouseup', endDrag);
     canvas.addEventListener('touchend', endDrag);
 
-    // 🔥 재시작 버튼 클릭 이벤트 🔥
     restartBtn.addEventListener('click', () => {
         score = 0;
         timeLeft = 60;
@@ -204,28 +210,36 @@
         activeBalls = [];
         court.offsetX = 0;
         court.direction = 1;
-        restartBtn.style.display = "none"; // 버튼 다시 숨기기
+        restartBtn.style.display = "none"; 
     });
 
     function shootBall(dx, dy) {
-        let powerY = dy * 0.20; // 포물선 높게!
-        if (powerY < -45) powerY = -43; // 최대 높이 제한
+        // 🔥 수정한 부분 3: 공이 위로 솟구치는 속도를 대폭 줄임 (원래 0.20 -> 0.12)
+        let powerY = dy * 0.12; 
+        
+        // 🔥 수정한 부분 4: 솟구치는 힘이 너무 셀 때 걸어두는 최대 제한치도 낮춤 (원래 -43 -> -35)
+        if (powerY < -35) powerY = -35; 
 
-        let powerZ = Math.abs(dy) * 0.02; // 앞으로 가는 속도 조절
-        if (powerZ > 18) powerZ = 13; // 앞으로 가는 속도 제한
+        // 🔥 수정한 부분 5: 공이 앞으로(골대 쪽으로 Z축) 날아가는 속도도 부드럽게 살짝 줄임 (원래 0.02 -> 0.015)
+        let powerZ = Math.abs(dy) * 0.015; 
+        
+        // 🔥 수정한 부분 6: 앞으로 날아가는 최대 속도 제한치도 낮춤 (원래 13 -> 11)
+        if (powerZ > 11) powerZ = 11; 
 
         activeBalls.push({
             x: 0,
             y: 600, 
             z: 0,
-            vx: dx * 0.1,
+            
+            // 🔥 수정한 부분 7: 좌우(X축)로 휘는 속도도 살짝 잡아줌 (원래 0.1 -> 0.08)
+            vx: dx * 0.08,
             vy: powerY,
             vz: powerZ,
             radius: BALL_RADIUS,
             scored: false,
             oldY: 600,
             rotation: 0, 
-            angularVelocity: (Math.random() - 0.5) * 0.8 // 날아갈 때 빙글빙글 도는 속도 (랜덤)
+            angularVelocity: (Math.random() - 0.5) * 0.8 
         });
     }
 
@@ -257,7 +271,7 @@
                 b.vx *= 0.8;
             }
 
-            // 1. 림 충돌 (위로 솟구칠 때는 림 무시!)
+            // 1. 림 충돌 
             for (let rp of currentRimPoints) {
                 if (b.vy < 0 && b.y > court.hoopY + 10) continue; 
 
@@ -320,7 +334,7 @@
             timeLeft = Math.max(0, 60 - Math.floor((Date.now() - startTime) / 1000));
             if (timeLeft <= 0) {
                 isGameOver = true;
-                restartBtn.style.display = "block"; // 🔥 게임 오버 시 재시작 버튼 표시!
+                restartBtn.style.display = "block"; 
             }
         }
 
@@ -336,7 +350,6 @@
 
         activeBalls.sort((a, b) => b.z - a.z);
 
-        // 🏀 림 뒤에 있는 공 (회전 + 명암 적용)
         activeBalls.forEach(b => {
             if (b.z > court.hoopZ) {
                 const proj = project3D(b.x, b.y, b.z);
@@ -367,7 +380,6 @@
 
         court.drawRimFront();
 
-        // 🏀 림 앞에 있는 공 (회전 + 명암 적용)
         activeBalls.forEach(b => {
             if (b.z <= court.hoopZ) {
                 const proj = project3D(b.x, b.y, b.z);
@@ -396,7 +408,6 @@
             }
         });
 
-        // (원래 있던 대기 공 그리는 코드 블록을 이걸로 교체!)
         if (!isGameOver) {
             const readyProj = project3D(0, 560, 0);
             const r = BALL_RADIUS * readyProj.scale;
@@ -404,13 +415,11 @@
             if (isDragging) ctx.globalAlpha = 0.4;
             
             if (tigerImg.complete) {
-                // 1. 공 원본 그리기
                 ctx.save();
                 ctx.translate(readyProj.x, readyProj.y);
                 ctx.drawImage(tigerImg, -r, -r, r * 2, r * 2);
                 ctx.restore();
 
-                // 2. 대기 공에도 똑같이 입체 명암(Shading) 적용!
                 const gradient = ctx.createRadialGradient(
                     readyProj.x - r * 0.3, readyProj.y - r * 0.3, r * 0.1,  
                     readyProj.x, readyProj.y, r                             
