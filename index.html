@@ -611,6 +611,13 @@
             ctx.fillStyle = "#f1c40f";
             ctx.font = "bold 35px 'Malgun Gothic'";
             ctx.fillText(`최종 점수: ${score}점`, canvas.width/2, canvas.height/2 + 10);
+
+            // 🔥 추가된 부분: 결과창에 현재 한국 시간(KST) 띄우기!
+            const now = new Date();
+            const timeString = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+            ctx.fillStyle = "#bdc3c7"; // 살짝 연한 밝은 회색
+            ctx.font = "bold 18px 'Malgun Gothic'";
+            ctx.fillText(`기록 일시: ${timeString}`, canvas.width/2, canvas.height/2 + 60);
         }
     }
 
