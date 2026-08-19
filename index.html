@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>호랑이 메신저 농구! 🐯🏀</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #2c3e50;
+            font-family: 'Malgun Gothic', sans-serif;
+            overflow: hidden;
+            touch-action: none; 
+            position: relative; /* 버튼 절대 위치 기준 */
+        }
+        canvas {
+            background-color: #f5f6fa; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        /* 🔥 멋진 재시작 버튼 스타일 🔥 */
+        #restartBtn {
+            position: absolute;
+            top: 65%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 40px;
+            font-size: 24px;
+            font-family: 'Malgun Gothic', sans-serif;
+            font-weight: bold;
+            color: white;
+            background-color: #e74c3c;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 15px rgba(231, 76, 60, 0.4);
+            transition: all 0.2s;
+            display: none; /* 게임 중엔 숨김! */
+            z-index: 10;
+        }
+        #restartBtn:hover {
+            background-color: #c0392b;
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+        #restartBtn:active {
+            transform: translate(-50%, -50%) scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="500" height="700"></canvas>
+<!-- 재시작 버튼 HTML -->
+<button id="restartBtn">다시 하기 🔄</button>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const restartBtn = document.getElementById("restartBtn");
+
+    const tigerImg = new Image();
+    tigerImg.src = "image_d40d0f.png";
+
+    // --- 3D 투영 및 물리 환경 세팅 ---
+    const FOV = 400;         
+    const GRAVITY = 1.3;     
+    const BALL_RADIUS = 40;  
+
+    function project3D(x, y, z) {
+        const scale = FOV / (FOV + Math.max(z, -FOV + 1));
+        const screenX = canvas.width / 2 + x * scale;
+        const screenY = y * scale; 
+        return { x: screenX, y: screenY, scale: scale };
+    }
+
+    let score = 0;
+    let timeLeft = 60;
+    let isGameOver = false;
+    let startTime = Date.now();
+
+    // 골대 세팅
+    const court = {
+        backboardZ: 250, 
+        backboardY: 150, 
+        backboardW: 260,
+        backboardH: 180,
+        hoopZ: 200,      
+        hoopY: 250,      
+        hoopRadius: 70,  
+        offsetX: 0,
+        moveSpeed: 3,
+        direction: 1,
+
+        update(time) {
+            if (time <= 30) {
+                this.offsetX += this.moveSpeed * this.direction;
+                if (this.offsetX > 100 || this.offsetX < -100) {
+                    this.direction *= -1;
+                }
+            }
+        },
+
+        drawBackboard() {
+            const center = project3D(this.offsetX, this.backboardY, this.backboardZ);
+            const w = this.backboardW * center.scale;
+            const h = this.backboardH * center.scale;
+
+            ctx.fillStyle = "#ffffff";
+            ctx.strokeStyle = "#dcdde1";
+            ctx.lineWidth = 4 * center.scale;
+            ctx.beginPath();
+            ctx.roundRect(center.x - w/2, center.y - h/2, w, h, 10);
+            ctx.fill();
+            ctx.stroke();
+
+            const targetW = 100 * center.scale;
+            const targetH = 80 * center.scale;
+            const targetY = project3D(this.offsetX, this.hoopY - 40, this.backboardZ).y;
+            
+            ctx.strokeStyle = "#e74c3c";
+            ctx.lineWidth = 5 * center.scale;
+            ctx.strokeRect(center.x - targetW/2, targetY - targetH, targetW, targetH);
+        },
+
+        drawRimBack() {
+            const center = project3D(this.offsetX, this.hoopY, this.hoopZ);
+            const r = this.hoopRadius * center.scale;
+            
+            ctx.beginPath();
+            ctx.ellipse(center.x, center.y, r, r * 0.3, 0, Math.PI, 0);
+            ctx.strokeStyle = "#e67e22";
+            ctx.lineWidth = 8 * center.scale;
+            ctx.stroke();
+        },
+
+        drawRimFront() {
+            const center = project3D(this.offsetX, this.hoopY, this.hoopZ);
+            const r = this.hoopRadius * center.scale;
+            
+            ctx.beginPath();
+            ctx.ellipse(center.x, center.y, r, r * 0.3, 0, 0, Math.PI);
+            ctx.strokeStyle = "#e67e22";
+            ctx.lineWidth = 8 * center.scale;
+            ctx.lineCap = "round";
+            ctx.stroke();
+        }
+    };
+
+    const rimPoints = [];
+    for (let i = 0; i < 12; i++) {
+        const angle = (Math.PI * 2 * i) / 12;
+        rimPoints.push({
+            offsetX: Math.cos(angle) * court.hoopRadius,
+            offsetZ: Math.sin(angle) * court.hoopRadius
+        });
+    }
+
+    let activeBalls = [];
+    let isDragging = false;
+    let startX = 0, startY = 0;
+
+    function getPos(e) {
+        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    function startDrag(e) {
+        if (isGameOver) return;
+        isDragging = true;
+        const pos = getPos(e);
+        startX = pos.x;
+        startY = pos.y;
+    }
+
+    function endDrag(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        const pos = getPos(e);
+        const dx = pos.x - startX;
+        const dy = pos.y - startY;
+
+        if (dy < -20) {
+            shootBall(dx, dy);
+        }
+    }
+
+    canvas.addEventListener('mousedown', startDrag);
+    canvas.addEventListener('touchstart', startDrag, {passive: false});
+    canvas.addEventListener('mouseup', endDrag);
+    canvas.addEventListener('touchend', endDrag);
+
+    // 🔥 재시작 버튼 클릭 이벤트 🔥
+    restartBtn.addEventListener('click', () => {
+        score = 0;
+        timeLeft = 60;
+        isGameOver = false;
+        startTime = Date.now();
+        activeBalls = [];
+        court.offsetX = 0;
+        court.direction = 1;
+        restartBtn.style.display = "none"; // 버튼 다시 숨기기
+    });
+
+    function shootBall(dx, dy) {
+        let powerY = dy * 0.20; // 포물선 높게!
+        if (powerY < -45) powerY = -43; // 최대 높이 제한
+
+        let powerZ = Math.abs(dy) * 0.02; // 앞으로 가는 속도 조절
+        if (powerZ > 18) powerZ = 13; // 앞으로 가는 속도 제한
+
+        activeBalls.push({
+            x: 0,
+            y: 600, 
+            z: 0,
+            vx: dx * 0.1,
+            vy: powerY,
+            vz: powerZ,
+            radius: BALL_RADIUS,
+            scored: false,
+            oldY: 600,
+            rotation: 0, 
+            angularVelocity: (Math.random() - 0.5) * 0.8 // 날아갈 때 빙글빙글 도는 속도 (랜덤)
+        });
+    }
+
+    function updatePhysics() {
+        court.update(timeLeft);
+
+        const currentRimPoints = rimPoints.map(p => ({
+            x: court.offsetX + p.offsetX,
+            y: court.hoopY,
+            z: court.hoopZ + p.offsetZ
+        }));
+
+        for (let i = activeBalls.length - 1; i >= 0; i--) {
+            let b = activeBalls[i];
+            
+            b.oldY = b.y;
+            b.vy += GRAVITY; 
+            
+            b.x += b.vx;
+            b.y += b.vy;
+            b.z += b.vz;
+
+            b.rotation += b.angularVelocity;
+
+            // 천장 충돌
+            if (b.y < -100) {
+                b.y = -100;
+                b.vy *= -0.6; 
+                b.vx *= 0.8;
+            }
+
+            // 1. 림 충돌 (위로 솟구칠 때는 림 무시!)
+            for (let rp of currentRimPoints) {
+                if (b.vy < 0 && b.y > court.hoopY + 10) continue; 
+
+                const dist = Math.hypot(b.x - rp.x, b.y - rp.y, b.z - rp.z);
+                if (dist < b.radius) {
+                    const nx = (b.x - rp.x) / dist;
+                    const ny = (b.y - rp.y) / dist;
+                    const nz = (b.z - rp.z) / dist;
+                    
+                    const dot = b.vx * nx + b.vy * ny + b.vz * nz;
+                    if (dot < 0) {
+                        b.vx = (b.vx - 2 * dot * nx) * 0.7;
+                        b.vy = (b.vy - 2 * dot * ny) * 0.7;
+                        b.vz = (b.vz - 2 * dot * nz) * 0.7;
+                        
+                        const overlap = b.radius - dist;
+                        b.x += nx * overlap;
+                        b.y += ny * overlap;
+                        b.z += nz * overlap;
+                    }
+                }
+            }
+
+            // 2. 백보드 충돌
+            if (b.vz > 0 && b.z >= court.backboardZ - b.radius) {
+                if (b.x > court.offsetX - court.backboardW/2 && 
+                    b.x < court.offsetX + court.backboardW/2 &&
+                    b.y > court.backboardY - court.backboardH/2 && 
+                    b.y < court.backboardY + court.backboardH/2) {
+                    
+                    b.z = court.backboardZ - b.radius;
+                    b.vz *= -0.3; 
+                    b.vx *= 0.6;
+                    b.vy *= 0.8;
+                }
+            }
+
+            // 3. 득점 판정
+            if (b.vy > 0 && b.oldY < court.hoopY && b.y >= court.hoopY) {
+                const distFromCenter = Math.hypot(b.x - court.offsetX, b.z - court.hoopZ);
+                if (distFromCenter < 30) { 
+                    if (!b.scored) {
+                        score++;
+                        b.scored = true;
+                        b.vx *= 0.4;
+                        b.vy *= 0.5;
+                        b.vz *= 0.4;
+                    }
+                }
+            }
+
+            if (b.y > 1200) activeBalls.splice(i, 1);
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!isGameOver) {
+            timeLeft = Math.max(0, 60 - Math.floor((Date.now() - startTime) / 1000));
+            if (timeLeft <= 0) {
+                isGameOver = true;
+                restartBtn.style.display = "block"; // 🔥 게임 오버 시 재시작 버튼 표시!
+            }
+        }
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+        ctx.font = "bold 250px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(score, canvas.width/2, canvas.height/2 + 50);
+        ctx.textBaseline = "alphabetic";
+
+        court.drawBackboard();
+        court.drawRimBack();
+
+        activeBalls.sort((a, b) => b.z - a.z);
+
+        // 🏀 림 뒤에 있는 공 (회전 + 명암 적용)
+        activeBalls.forEach(b => {
+            if (b.z > court.hoopZ) {
+                const proj = project3D(b.x, b.y, b.z);
+                const r = b.radius * proj.scale;
+                
+                if (tigerImg.complete) {
+                    ctx.save(); 
+                    ctx.translate(proj.x, proj.y);
+                    ctx.rotate(b.rotation);
+                    ctx.drawImage(tigerImg, -r, -r, r * 2, r * 2);
+                    ctx.restore(); 
+
+                    const gradient = ctx.createRadialGradient(
+                        proj.x - r * 0.3, proj.y - r * 0.3, r * 0.1,  
+                        proj.x, proj.y, r                             
+                    );
+                    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)'); 
+                    gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0)');       
+                    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');       
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(proj.x, proj.y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        });
+
+        court.drawRimFront();
+
+        // 🏀 림 앞에 있는 공 (회전 + 명암 적용)
+        activeBalls.forEach(b => {
+            if (b.z <= court.hoopZ) {
+                const proj = project3D(b.x, b.y, b.z);
+                const r = b.radius * proj.scale;
+                
+                if (tigerImg.complete) {
+                    ctx.save(); 
+                    ctx.translate(proj.x, proj.y);
+                    ctx.rotate(b.rotation);
+                    ctx.drawImage(tigerImg, -r, -r, r * 2, r * 2);
+                    ctx.restore(); 
+
+                    const gradient = ctx.createRadialGradient(
+                        proj.x - r * 0.3, proj.y - r * 0.3, r * 0.1,  
+                        proj.x, proj.y, r                             
+                    );
+                    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)'); 
+                    gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0)');       
+                    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');       
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(proj.x, proj.y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        });
+
+        // (원래 있던 대기 공 그리는 코드 블록을 이걸로 교체!)
+        if (!isGameOver) {
+            const readyProj = project3D(0, 560, 0);
+            const r = BALL_RADIUS * readyProj.scale;
+            
+            if (isDragging) ctx.globalAlpha = 0.4;
+            
+            if (tigerImg.complete) {
+                // 1. 공 원본 그리기
+                ctx.save();
+                ctx.translate(readyProj.x, readyProj.y);
+                ctx.drawImage(tigerImg, -r, -r, r * 2, r * 2);
+                ctx.restore();
+
+                // 2. 대기 공에도 똑같이 입체 명암(Shading) 적용!
+                const gradient = ctx.createRadialGradient(
+                    readyProj.x - r * 0.3, readyProj.y - r * 0.3, r * 0.1,  
+                    readyProj.x, readyProj.y, r                             
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)'); 
+                gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0)');       
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');       
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(readyProj.x, readyProj.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.globalAlpha = 1.0;
+        }
+
+        ctx.fillStyle = "#2c3e50";
+        ctx.font = "bold 20px 'Malgun Gothic'";
+        ctx.textAlign = "left";
+        ctx.fillText(`남은 시간: ${timeLeft}초`, 20, 35);
+        
+        if (timeLeft <= 30 && !isGameOver) {
+            ctx.fillStyle = "#e74c3c";
+            ctx.textAlign = "right";
+            ctx.fillText(`🔥 무빙 활성화`, canvas.width - 20, 35);
+        }
+
+        if (isGameOver) {
+            ctx.fillStyle = "rgba(44, 62, 80, 0.85)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            ctx.font = "bold 50px 'Malgun Gothic'";
+            ctx.fillText(`시간 종료!`, canvas.width/2, canvas.height/2 - 60);
+            ctx.fillStyle = "#f1c40f";
+            ctx.font = "bold 35px 'Malgun Gothic'";
+            ctx.fillText(`최종 점수: ${score}점`, canvas.width/2, canvas.height/2 + 10);
+        }
+    }
+
+    function gameLoop() {
+        if (!isGameOver) updatePhysics();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+</script>
+
+</body>
+</html>
