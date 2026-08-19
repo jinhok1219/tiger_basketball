@@ -106,7 +106,7 @@
         update(time) {
             if (time <= 30) {
                 this.offsetX += this.moveSpeed * this.direction;
-                if (this.offsetX > 150 || this.offsetX < -150) { // 골대 좌우 이동범위
+                if (this.offsetX > 200 || this.offsetX < -200) { // 골대 좌우 이동범위
                     this.direction *= -1;
                 }
             }
